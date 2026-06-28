@@ -185,9 +185,10 @@ tr:last-child td { border-bottom: none; }
 /* ── Empty ── */
 .empty { text-align: center; color: #bbb; padding: 24px; font-size: .85rem; }
 
-/* ── Drag Number (slide up/down to change) ── */
+/* ── Drag Number (slide or click +/−) ── */
+.drag-row { display:flex; align-items:center; gap:5px; }
 .drag-num {
-  border: 1px solid var(--border); border-radius: 8px;
+  flex:1; border: 1px solid var(--border); border-radius: 8px;
   background: white; text-align: center;
   cursor: ns-resize; touch-action: none;
   user-select: none; -webkit-user-select: none; padding: 2px 0;
@@ -195,6 +196,17 @@ tr:last-child td { border-bottom: none; }
 .drag-num:active { border-color: var(--green); background: var(--light); }
 .drag-val { font-size: 1.4rem; font-weight: 700; color: var(--dark); padding: 4px 0; line-height:1.3; }
 .drag-arr { font-size: .55rem; color: #bbb; line-height: 1.4; }
+.adj-btn {
+  width:36px; height:52px; border-radius:8px; border:1.5px solid var(--border);
+  background:white; font-size:1.4rem; cursor:pointer; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.adj-btn:active { background:var(--light); border-color:var(--green); }
+
+/* ── Board slider ── */
+.board-row { display:flex; align-items:center; gap:10px; }
+.board-row input[type=range] { flex:1; accent-color:var(--green); cursor:pointer; height:28px; }
+.board-num { font-size:1.25rem; font-weight:700; color:var(--dark); min-width:28px; text-align:right; }
 
 /* ── Level tap buttons ── */
 .lvl-btns { display:flex; gap:5px; }
@@ -253,7 +265,7 @@ tr:last-child td { border-bottom: none; }
     <div class="suits">♠♥♦♣</div>
     <h1>Duplicate Bridge Scorer</h1>
     <p>Real-time scoring for club games</p>
-    <p style="font-size:.65rem;color:#ccc;margin-top:4px">v8</p>
+    <p style="font-size:.65rem;color:#ccc;margin-top:4px">v9</p>
   </div>
   <button class="role-btn rb-director" onclick="go('s-dir-setup')">
     <span class="icon">🎯</span>
@@ -319,6 +331,7 @@ tr:last-child td { border-bottom: none; }
     <button class="tbtn on" id="ddt-setup"    onclick="ddt('setup')">Setup</button>
     <button class="tbtn"    id="ddt-results"  onclick="ddt('results')">Results</button>
     <button class="tbtn"    id="ddt-standings" onclick="ddt('standings')">Standings</button>
+    <button class="tbtn"    id="ddt-enter"    onclick="ddt('enter')">Enter Score</button>
   </div>
   <div class="tabpanel">
     <div id="dd-setup">
@@ -332,6 +345,7 @@ tr:last-child td { border-bottom: none; }
     </div>
     <div id="dd-results"   style="display:none"><div id="dir-results-inner"></div></div>
     <div id="dd-standings" style="display:none"><div id="dir-standings-inner"></div></div>
+    <div id="dd-enter"     style="display:none"><div id="dir-entry-inner"></div></div>
   </div>
 </div>
 
@@ -356,31 +370,41 @@ tr:last-child td { border-bottom: none; }
     <!-- Pair drag controls -->
     <div class="row2">
       <div class="fg">
-        <label>NS Pair # — slide ↕</label>
-        <div class="drag-num" id="dn-ns">
-          <div class="drag-arr">▲</div>
-          <div class="drag-val" id="te-ns-val">1</div>
-          <div class="drag-arr">▼</div>
+        <label>NS Pair #</label>
+        <div class="drag-row">
+          <button class="adj-btn" onclick="adjVal('ns',-1)">−</button>
+          <div class="drag-num" id="dn-ns">
+            <div class="drag-arr">▲</div>
+            <div class="drag-val" id="te-ns-val">1</div>
+            <div class="drag-arr">▼</div>
+          </div>
+          <button class="adj-btn" onclick="adjVal('ns',1)">+</button>
         </div>
       </div>
       <div class="fg">
-        <label>EW Pair # — slide ↕</label>
-        <div class="drag-num" id="dn-ew">
-          <div class="drag-arr">▲</div>
-          <div class="drag-val" id="te-ew-val">2</div>
-          <div class="drag-arr">▼</div>
+        <label>EW Pair #</label>
+        <div class="drag-row">
+          <button class="adj-btn" onclick="adjVal('ew',-1)">−</button>
+          <div class="drag-num" id="dn-ew">
+            <div class="drag-arr">▲</div>
+            <div class="drag-val" id="te-ew-val">2</div>
+            <div class="drag-arr">▼</div>
+          </div>
+          <button class="adj-btn" onclick="adjVal('ew',1)">+</button>
         </div>
       </div>
     </div>
-    <!-- Board & Vul -->
-    <div class="row2">
+    <!-- Board slider & Vul -->
+    <div class="row2" style="align-items:center">
       <div class="fg">
-        <label>Board #</label>
-        <input id="te-board" type="number" min="1" placeholder="1" oninput="tePreview()">
+        <label>Board # <span class="board-num" id="te-board-lbl">1</span></label>
+        <div class="board-row">
+          <input id="te-board" type="range" min="1" max="24" value="1" oninput="tePreview()">
+        </div>
       </div>
       <div class="fg">
         <label>Vulnerability</label>
-        <div id="te-vul" style="padding-top:7px"></div>
+        <div id="te-vul" style="padding-top:4px"></div>
       </div>
     </div>
     <!-- Passout -->
@@ -437,11 +461,15 @@ tr:last-child td { border-bottom: none; }
       <!-- Tricks drag + score preview -->
       <div class="row2" style="align-items:flex-end;">
         <div class="fg">
-          <label>Tricks Made — slide ↕</label>
-          <div class="drag-num" id="dn-tricks">
-            <div class="drag-arr">▲</div>
-            <div class="drag-val" id="te-tricks-val">7</div>
-            <div class="drag-arr">▼</div>
+          <label>Tricks Made</label>
+          <div class="drag-row">
+            <button class="adj-btn" onclick="adjVal('tricks',-1)">−</button>
+            <div class="drag-num" id="dn-tricks">
+              <div class="drag-arr">▲</div>
+              <div class="drag-val" id="te-tricks-val">7</div>
+              <div class="drag-arr">▼</div>
+            </div>
+            <button class="adj-btn" onclick="adjVal('tricks',1)">+</button>
           </div>
         </div>
         <div class="fg" style="padding-bottom:1px"><div class="preview-score" id="te-preview">—</div></div>
@@ -572,6 +600,14 @@ function setLvl(n) {
   tePreview();
 }
 
+function adjVal(field, delta) {
+  const maxPairs = tableSession ? tableSession.numPairs : 40;
+  if (field==='ns')     { stepNS     = Math.max(1, Math.min(maxPairs, stepNS+delta));     document.getElementById('te-ns-val').textContent=stepNS; }
+  if (field==='ew')     { stepEW     = Math.max(1, Math.min(maxPairs, stepEW+delta));     document.getElementById('te-ew-val').textContent=stepEW; }
+  if (field==='tricks') { stepTricks = Math.max(0, Math.min(13, stepTricks+delta));       document.getElementById('te-tricks-val').textContent=stepTricks; }
+  tePreview();
+}
+
 function initDragNums() {
   const PX = 16; // pixels of drag per 1 step
 
@@ -632,6 +668,8 @@ function goBack() {
   const a=document.querySelector('.screen.active');
   if(!a)return;
   const id=a.id;
+  if(id==='s-table-entry'&&entryFromDirector){entryFromDirector=false;go('s-director');ddt('setup');return;}
+  if(id==='s-table-confirm'&&entryFromDirector){entryFromDirector=false;go('s-director');ddt('results');return;}
   const map={
     's-dir-setup':'s-home','s-director':'s-home',
     's-table-join':'s-home','s-table-entry':'s-table-join',
@@ -738,12 +776,28 @@ function openDirector() {
 }
 
 function ddt(t) {
-  ['setup','results','standings'].forEach(x=>{
+  ['setup','results','standings','enter'].forEach(x=>{
     document.getElementById(`ddt-${x}`).classList.toggle('on',x===t);
     document.getElementById(`dd-${x}`).style.display=x===t?'':'none';
   });
   if(t==='results')renderDirResults();
   if(t==='standings')renderDirStandings();
+  if(t==='enter')renderDirEntryForm();
+}
+
+let entryFromDirector = false;
+
+function renderDirEntryForm() {
+  tableCode = dirCode;
+  tableSession = {...dirSession};
+  const boardEl = document.getElementById('te-board');
+  boardEl.max = tableSession.numBoards;
+  boardEl.value = 1;
+  document.getElementById('te-board-lbl').textContent = 1;
+  document.getElementById('te-vul').innerHTML = vBadge(bVul(1));
+  document.getElementById('te-preview').textContent = '—';
+  entryFromDirector = true;
+  go('s-table-entry');
 }
 
 function renderDirPairs() {
@@ -793,7 +847,7 @@ function renderDirResults() {
         <td class="${r.nsScore>=0?'pos':'neg'}">${fmt(r.nsScore)}</td>
         <td><span class="${mpCls(nf)}">${r.nsMp}</span><span style="color:#ccc;font-size:.68rem">/${top}</span></td>
         <td><span class="${mpCls(ef)}">${r.ewMp}</span><span style="color:#ccc;font-size:.68rem">/${top}</span></td>
-        <td><button class="sm-btn sm-red" onclick="dirDeleteResult('${r._id}')">✕</button></td>
+        <td><button style="background:#ffebee;color:#c62828;border:1px solid #ef9a9a;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:.85rem;" onclick="dirDeleteResult('${r._id}')">Delete</button></td>
       </tr>`;
     });
     h+='</tbody></table></div>';
@@ -819,13 +873,16 @@ async function tableJoin() {
     const snap=await db.collection('sessions').doc(code).get();
     if(!snap.exists)return showErr('tj-err','Session not found. Check with the Director.');
     tableCode=code; tableSession=snap.data();
-    document.getElementById('te-board').max=tableSession.numBoards;
+    const boardEl=document.getElementById('te-board');
+    boardEl.max=tableSession.numBoards; boardEl.value=1;
+    document.getElementById('te-board-lbl').textContent=1;
     setHdr(tableSession.name,'Enter Score');
 
     // Reset steppers for this session
     stepNS=1; stepEW=tableSession.numPairs>=2?2:1;
     document.getElementById('te-ns-val').textContent=stepNS;
     document.getElementById('te-ew-val').textContent=stepEW;
+    entryFromDirector=false;
 
     // If session already ended, go straight to results
     if(tableSession.sessionEnded){loadTableResults();return;}
@@ -856,6 +913,8 @@ function teTogglePO() {
 
 function tePreview() {
   const bn=parseInt(document.getElementById('te-board').value);
+  const lbl=document.getElementById('te-board-lbl');
+  if(lbl) lbl.textContent=bn||'—';
   const prev=document.getElementById('te-preview');
   if(bn>=1&&bn<=36)document.getElementById('te-vul').innerHTML=vBadge(bVul(bn));
   if(document.getElementById('te-po').checked){prev.textContent='0';return;}
@@ -1049,8 +1108,11 @@ function standingsHtml(st) {
 // ENTRY FORM RESET
 // ════════════════════════════════════════════════════════════
 function resetEntryForm() {
-  document.getElementById('te-board').value = '';
-  document.getElementById('te-vul').innerHTML = '';
+  // Reset board to 1 (keep pair numbers as-is)
+  const boardEl = document.getElementById('te-board');
+  boardEl.value = 1;
+  document.getElementById('te-board-lbl').textContent = 1;
+  document.getElementById('te-vul').innerHTML = vBadge(bVul(1));
   const prev = document.getElementById('te-preview');
   prev.textContent = '—'; prev.style.color = '';
   document.getElementById('te-po').checked = false;
@@ -1058,9 +1120,7 @@ function resetEntryForm() {
   document.getElementById('te-suit').value = 'S';
   document.getElementById('te-dir').value = 'S';
   document.getElementById('te-dbl').value = '0';
-  stepNS=1; stepEW=tableSession&&tableSession.numPairs>=2?2:1; stepTricks=7;
-  document.getElementById('te-ns-val').textContent=stepNS;
-  document.getElementById('te-ew-val').textContent=stepEW;
+  stepTricks=7;
   document.getElementById('te-tricks-val').textContent=7;
   setLvl(1);
   hideErr('te-err');
