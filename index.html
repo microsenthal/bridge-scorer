@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bridge Scorer</title>
+<style>
+/* ── SETUP INSTRUCTIONS (shown before Firebase config is set) ── */
+#setup-overlay {
+  position: fixed; inset: 0; background: #0d4a27; color: white;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; padding: 20px;
+}
+#setup-overlay .box {
+  background: rgba(255,255,255,.1); border-radius: 12px;
+  padding: 28px 24px; max-width: 500px; width: 100%;
+}
+#setup-overlay h2 { font-size: 1.2rem; margin-bottom: 16px; }
+#setup-overlay p  { font-size: .88rem; line-height: 1.6; margin-bottom: 12px; opacity: .9; }
+#setup-overlay code {
+  background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 4px;
+  font-family: monospace; font-size: .85rem;
+}
+#setup-overlay ol { padding-left: 20px; font-size: .88rem; line-height: 1.9; opacity: .9; }
+#setup-overlay textarea {
+  width: 100%; height: 180px; font-family: monospace; font-size: .8rem;
+  padding: 10px; border-radius: 8px; border: none; margin: 12px 0; resize: none;
+  background: rgba(0,0,0,.3); color: white;
+}
+#setup-overlay textarea::placeholder { color: rgba(255,255,255,.4); }
+#setup-overlay button {
+  background: #c8a000; color: white; border: none; border-radius: 8px;
+  padding: 12px 24px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%;
+}
+#setup-overlay .err { background: rgba(200,0,0,.3); border-radius: 6px; padding: 8px 12px; font-size: .82rem; margin-top:8px; display:none; }
+
+/* ── Root & Body ── */
+:root {
+  --green: #1a6b3a; --dark: #0d4a27; --light: #e8f5e9; --gold: #c8a000;
+  --red: #c62828; --blue: #1565c0; --text: #212121; --bg: #f4f5f7;
+  --card: #fff; --border: #e0e0e0; --muted: #757575; --suit-red: #d32f2f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+  max-width: 600px; margin: 0 auto;
+}
+
+/* ── Header ── */
+.hdr { background: var(--dark); color: white; padding: 13px 16px; display: flex; align-items: center; gap: 10px; }
+.hdr-back { background: none; border: none; color: white; font-size: 1.3rem; cursor: pointer; padding: 0 8px 0 0; }
+.hdr-title { font-size: 1.05rem; font-weight: 600; flex: 1; }
+.hdr-sub   { font-size: .72rem; opacity: .7; white-space: nowrap; }
+
+/* ── Screens ── */
+.screen { display: none; padding: 16px; }
+.screen.active { display: block; }
+
+/* ── Home ── */
+.home-hero { text-align: center; padding: 36px 0 28px; }
+.home-hero .suits { font-size: 2.8rem; letter-spacing: .08em; }
+.home-hero h1 { font-size: 1.5rem; font-weight: 700; color: var(--dark); margin-top: 10px; }
+.home-hero p  { color: var(--muted); font-size: .88rem; margin-top: 6px; }
+.role-btn {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 16px; border-radius: 10px; border: none; cursor: pointer;
+  margin-bottom: 12px; text-align: left; transition: opacity .15s;
+}
+.role-btn:active { opacity: .8; }
+.role-btn .icon { font-size: 1.8rem; }
+.role-btn .lbl  { font-size: 1rem; font-weight: 600; color: white; }
+.role-btn .desc { font-size: .78rem; color: rgba(255,255,255,.75); display: block; margin-top: 2px; }
+.rb-director { background: var(--dark); }
+.rb-table    { background: var(--blue); }
+
+/* ── Cards ── */
+.card { background: var(--card); border-radius: 10px; border: 1px solid var(--border); padding: 16px; margin-bottom: 14px; }
+.card-title { font-size: .93rem; font-weight: 600; color: var(--dark); margin-bottom: 12px; }
+
+/* ── Forms ── */
+.fg { margin-bottom: 12px; }
+label { display: block; font-size: .76rem; font-weight: 500; color: var(--muted); margin-bottom: 4px; }
+input[type=text], input[type=number], input[type=password] {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: .95rem; outline: none; background: white;
+  -webkit-appearance: none; appearance: none;
+}
+select {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: .95rem; outline: none; background: white;
+}
+input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(26,107,58,.12); }
+.row2 { display: flex; gap: 10px; }
+.row2 .fg { flex: 1; min-width: 0; }
+
+/* ── Buttons ── */
+.big-btn {
+  display: block; width: 100%; padding: 14px; background: var(--green); color: white;
+  border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; text-align: center;
+}
+.big-btn:active { background: var(--dark); }
+.big-btn:disabled { background: #aaa; cursor: not-allowed; }
+.sm-btn { padding: 8px 14px; border-radius: 6px; font-size: .83rem; font-weight: 500; border: none; cursor: pointer; }
+.sm-outline { background: none; border: 1.5px solid var(--green); color: var(--green); }
+.sm-red { background: #ffebee; color: var(--red); }
+
+/* ── Suit toggle buttons ── */
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.sbtn {
+  padding: 9px 12px; border: 2px solid var(--border); border-radius: 7px;
+  background: white; font-size: 1rem; font-weight: 700; min-width: 44px; text-align: center; cursor: pointer;
+}
+.sbtn.on { border-color: var(--green); background: var(--light); }
+.red { color: var(--suit-red); }
+.blk { color: #111; }
+
+/* ── Tab bar (inside cards) ── */
+.tabbar { display: flex; background: white; border-radius: 8px 8px 0 0; border: 1px solid var(--border); border-bottom: none; overflow: hidden; margin-bottom: 0; }
+.tbtn { flex: 1; padding: 10px 8px; text-align: center; font-size: .82rem; font-weight: 500; cursor: pointer; color: var(--muted); border: none; background: white; border-bottom: 3px solid transparent; }
+.tbtn.on { color: var(--dark); border-bottom-color: var(--green); font-weight: 600; }
+.tabpanel { background: white; border: 1px solid var(--border); border-radius: 0 0 10px 10px; padding: 14px; }
+
+/* ── Session code ── */
+.code-box { background: var(--dark); color: white; border-radius: 10px; padding: 18px 16px; text-align: center; margin-bottom: 14px; }
+.code-lbl { font-size: .75rem; opacity: .65; margin-bottom: 4px; }
+.code-val { font-size: 2.4rem; font-weight: 700; letter-spacing: .22em; font-family: monospace; }
+.code-hint { font-size: .72rem; opacity: .55; margin-top: 6px; }
+
+/* ── Tables ── */
+table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+th { background: #f2f2f2; padding: 6px 7px; text-align: left; font-size: .72rem; font-weight: 600; color: #555; border-bottom: 1px solid var(--border); }
+td { padding: 6px 7px; border-bottom: 1px solid #f3f3f3; }
+tr:last-child td { border-bottom: none; }
+.tc { text-align: center; }
+.tr { text-align: right; }
+
+/* ── Score preview ── */
+.preview-score { background: var(--light); color: var(--dark); border-radius: 8px; padding: 10px; font-size: 1.1rem; font-weight: 700; text-align: center; min-width: 70px; }
+
+/* ── Vulnerability ── */
+.vb { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: .72rem; font-weight: 700; }
+.vb-none { background: #e8f5e9; color: #2e7d32; }
+.vb-ns   { background: #fff3e0; color: #e65100; }
+.vb-ew   { background: #fce4ec; color: #880e4f; }
+.vb-both { background: #ffebee; color: var(--red); }
+
+/* ── Colors ── */
+.pos { color: #1b5e20; font-weight: 600; }
+.neg { color: var(--red); font-weight: 600; }
+.mp-hi  { color: #2e7d32; font-weight: 700; }
+.mp-mid { color: #555; }
+.mp-lo  { color: var(--red); font-weight: 700; }
+
+/* ── Pct bar ── */
+.pbar { background: #e0e0e0; border-radius: 10px; height: 6px; overflow: hidden; min-width: 40px; }
+.pfill { height: 100%; border-radius: 10px; }
+
+/* ── Confirm screen ── */
+.confirm-wrap { text-align: center; padding: 40px 20px; }
+.confirm-wrap .ci { font-size: 4rem; margin-bottom: 14px; }
+.confirm-wrap h2  { font-size: 1.3rem; color: var(--dark); margin-bottom: 8px; }
+.confirm-wrap p   { color: var(--muted); font-size: .9rem; margin-bottom: 32px; }
+
+/* ── Banners ── */
+.banner { padding: 10px 16px; text-align: center; font-size: .85rem; font-weight: 600; }
+.banner-ended { background: var(--dark); color: white; }
+.banner-wait  { background: #fff3e0; color: #e65100; }
+
+/* ── Flash ── */
+.flash { padding: 10px 14px; border-radius: 7px; font-size: .83rem; margin: 8px 0 0; }
+.flash-ok  { background: #e8f5e9; color: #1b5e20; }
+.flash-err { background: #ffebee; color: #b71c1c; }
+
+/* ── End session ── */
+.end-btn { display: block; width: 100%; padding: 13px; background: #ffebee; color: var(--red); border: 2px solid #ef9a9a; border-radius: 8px; font-size: .95rem; font-weight: 600; cursor: pointer; text-align: center; margin-top: 8px; }
+.end-btn:active { background: #ffcdd2; }
+.end-btn:disabled { background: #f5f5f5; color: #aaa; border-color: #ddd; cursor: not-allowed; }
+
+/* ── Spinner ── */
+.spin-wrap { text-align: center; padding: 32px; color: var(--muted); font-size: .88rem; }
+.spinner { display: inline-block; width: 22px; height: 22px; border: 3px solid #ddd; border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Empty ── */
+.empty { text-align: center; color: #bbb; padding: 24px; font-size: .85rem; }
+
+/* ── Drag Number (slide up/down to change) ── */
+.drag-num {
+  border: 1px solid var(--border); border-radius: 8px;
+  background: white; text-align: center;
+  cursor: ns-resize; touch-action: none;
+  user-select: none; -webkit-user-select: none; padding: 2px 0;
+}
+.drag-num:active { border-color: var(--green); background: var(--light); }
+.drag-val { font-size: 1.4rem; font-weight: 700; color: var(--dark); padding: 4px 0; line-height:1.3; }
+.drag-arr { font-size: .55rem; color: #bbb; line-height: 1.4; }
+
+/* ── Level tap buttons ── */
+.lvl-btns { display:flex; gap:5px; }
+.lvl-btn {
+  flex:1; padding:10px 0; border-radius:7px; border:1.5px solid var(--border);
+  background:white; font-size:.95rem; font-weight:600; cursor:pointer; text-align:center;
+}
+.lvl-btn.on { background:var(--dark); color:white; border-color:var(--dark); }
+.lvl-btn:active { opacity:.75; }
+</style>
+</head>
+<body>
+
+<!-- ══════════ FIREBASE SETUP OVERLAY ══════════ -->
+<div id="setup-overlay">
+  <div class="box">
+    <h2>⚙ First-time Firebase Setup</h2>
+    <p>This app needs a free Firebase database to sync scores across devices. Follow these steps:</p>
+    <ol>
+      <li>Go to <code>console.firebase.google.com</code></li>
+      <li>Create a project (any name, disable Analytics)</li>
+      <li>Click <strong>Firestore Database → Create Database</strong> (production mode is fine)</li>
+      <li>Go to <strong>Project Settings → Your apps → Add app → Web</strong></li>
+      <li>Copy the <code>firebaseConfig</code> object and paste it below</li>
+      <li>In Firestore, go to <strong>Rules</strong> and set: <code>allow read, write: if true;</code> then publish</li>
+    </ol>
+    <textarea id="config-paste" placeholder='Paste the firebaseConfig object here, e.g.:
+{
+  apiKey: "AIzaSy...",
+  authDomain: "myproject.firebaseapp.com",
+  projectId: "myproject",
+  storageBucket: "myproject.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456..."
+}'></textarea>
+    <button onclick="applyConfig()">Save & Continue →</button>
+    <div class="err" id="config-err"></div>
+  </div>
+</div>
+
+<!-- ══════════ BANNER (top, contextual) ══════════ -->
+<div id="top-banner" style="display:none"></div>
+
+<!-- ══════════ HEADER ══════════ -->
+<div class="hdr">
+  <button class="hdr-back" id="back-btn" onclick="goBack()" style="display:none">←</button>
+  <div>
+    <div class="hdr-title" id="hdr-title">♠♥♦♣ Bridge Scorer</div>
+    <div class="hdr-sub"   id="hdr-sub"></div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN: HOME ══════════ -->
+<div id="s-home" class="screen active">
+  <div class="home-hero">
+    <div class="suits">♠♥♦♣</div>
+    <h1>Duplicate Bridge Scorer</h1>
+    <p>Real-time scoring for club games</p>
+    <p style="font-size:.65rem;color:#ccc;margin-top:4px">v8</p>
+  </div>
+  <button class="role-btn rb-director" onclick="go('s-dir-setup')">
+    <span class="icon">🎯</span>
+    <div><span class="lbl">Director</span><span class="desc">Create or manage a scoring session</span></div>
+  </button>
+  <button class="role-btn rb-table" onclick="go('s-table-join')">
+    <span class="icon">📋</span>
+    <div><span class="lbl">Enter Score</span><span class="desc">Submit your board result</span></div>
+  </button>
+</div>
+
+<!-- ══════════ SCREEN: DIRECTOR SETUP ══════════ -->
+<div id="s-dir-setup" class="screen">
+  <div class="tabbar">
+    <button class="tbtn on" id="dt-new"      onclick="dsetTab('new')">New Session</button>
+    <button class="tbtn"    id="dt-existing" onclick="dsetTab('existing')">Existing Session</button>
+  </div>
+  <div class="tabpanel">
+    <!-- New -->
+    <div id="dset-new">
+      <div class="fg" style="margin-top:4px">
+        <label>Tournament Name</label>
+        <input id="cn-name" type="text" placeholder="e.g. Tuesday Night Duplicate">
+      </div>
+      <div class="row2">
+        <div class="fg"><label>Number of Pairs</label><input id="cn-pairs"  type="number" min="2" max="40" value="8"></div>
+        <div class="fg"><label>Number of Boards</label><input id="cn-boards" type="number" min="1" max="36" value="24"></div>
+      </div>
+      <div class="fg">
+        <label>Director PIN (4–8 digits, keeps results private)</label>
+        <input id="cn-pin" type="password" placeholder="e.g. 1234" maxlength="8">
+      </div>
+      <button class="big-btn" onclick="createSession()">Create Session →</button>
+      <div id="cn-err" class="flash flash-err" style="display:none"></div>
+    </div>
+    <!-- Existing -->
+    <div id="dset-existing" style="display:none">
+      <div class="fg" style="margin-top:4px">
+        <label>Session Code</label>
+        <input id="ex-code" type="text" placeholder="e.g. KFX7B2" maxlength="6"
+               style="text-transform:uppercase;letter-spacing:.2em;font-size:1.2rem;text-align:center"
+               oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="fg">
+        <label>Director PIN</label>
+        <input id="ex-pin" type="password" placeholder="PIN">
+      </div>
+      <button class="big-btn" onclick="dirLogin()">Access Session →</button>
+      <div id="ex-err" class="flash flash-err" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN: DIRECTOR DASHBOARD ══════════ -->
+<div id="s-director" class="screen">
+  <div class="code-box">
+    <div class="code-lbl">Session Code — share with players</div>
+    <div class="code-val" id="dir-code">——</div>
+    <div class="code-hint">Players tap "Enter Score" and type this code</div>
+  </div>
+
+  <div class="tabbar">
+    <button class="tbtn on" id="ddt-setup"    onclick="ddt('setup')">Setup</button>
+    <button class="tbtn"    id="ddt-results"  onclick="ddt('results')">Results</button>
+    <button class="tbtn"    id="ddt-standings" onclick="ddt('standings')">Standings</button>
+  </div>
+  <div class="tabpanel">
+    <div id="dd-setup">
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px;">Edit pair names, then tap Save. Changes apply immediately.</p>
+      <div id="dir-pairs-tbl"></div>
+      <button class="sm-btn sm-outline" style="width:100%;margin-top:8px" onclick="savePairs()">Save Pair Names</button>
+      <hr style="margin:16px 0;border:none;border-top:1px solid var(--border)">
+      <button class="end-btn" id="end-btn" onclick="endSession()">🔓 End Session &amp; Publish Results</button>
+      <p style="font-size:.73rem;color:var(--muted);text-align:center;margin-top:6px;">Players will see all results once this is tapped.</p>
+      <button class="sm-btn sm-outline" style="width:100%;margin-top:10px" onclick="exportCSV()">⬇ Download Results as CSV</button>
+    </div>
+    <div id="dd-results"   style="display:none"><div id="dir-results-inner"></div></div>
+    <div id="dd-standings" style="display:none"><div id="dir-standings-inner"></div></div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN: TABLE JOIN ══════════ -->
+<div id="s-table-join" class="screen">
+  <div class="card" style="margin-top:10px">
+    <div class="card-title">Join a Session</div>
+    <div class="fg">
+      <label>Session Code (from Director)</label>
+      <input id="tj-code" type="text" placeholder="KFX7B2" maxlength="6"
+             style="text-transform:uppercase;letter-spacing:.25em;font-size:1.4rem;text-align:center"
+             oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <button class="big-btn" onclick="tableJoin()">Join →</button>
+    <div id="tj-err" class="flash flash-err" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN: TABLE ENTRY ══════════ -->
+<div id="s-table-entry" class="screen">
+  <div class="card">
+    <!-- Pair drag controls -->
+    <div class="row2">
+      <div class="fg">
+        <label>NS Pair # — slide ↕</label>
+        <div class="drag-num" id="dn-ns">
+          <div class="drag-arr">▲</div>
+          <div class="drag-val" id="te-ns-val">1</div>
+          <div class="drag-arr">▼</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label>EW Pair # — slide ↕</label>
+        <div class="drag-num" id="dn-ew">
+          <div class="drag-arr">▲</div>
+          <div class="drag-val" id="te-ew-val">2</div>
+          <div class="drag-arr">▼</div>
+        </div>
+      </div>
+    </div>
+    <!-- Board & Vul -->
+    <div class="row2">
+      <div class="fg">
+        <label>Board #</label>
+        <input id="te-board" type="number" min="1" placeholder="1" oninput="tePreview()">
+      </div>
+      <div class="fg">
+        <label>Vulnerability</label>
+        <div id="te-vul" style="padding-top:7px"></div>
+      </div>
+    </div>
+    <!-- Passout -->
+    <div class="fg">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;">
+        <input type="checkbox" id="te-po" onchange="teTogglePO()"> All Pass (Passed Out)
+      </label>
+    </div>
+    <div id="te-contract">
+      <!-- Level buttons -->
+      <div class="fg">
+        <label>Level</label>
+        <div class="lvl-btns">
+          <button class="lvl-btn on" onclick="setLvl(1)">1</button>
+          <button class="lvl-btn"    onclick="setLvl(2)">2</button>
+          <button class="lvl-btn"    onclick="setLvl(3)">3</button>
+          <button class="lvl-btn"    onclick="setLvl(4)">4</button>
+          <button class="lvl-btn"    onclick="setLvl(5)">5</button>
+          <button class="lvl-btn"    onclick="setLvl(6)">6</button>
+          <button class="lvl-btn"    onclick="setLvl(7)">7</button>
+        </div>
+      </div>
+      <!-- Suit & Declarer -->
+      <div class="row2">
+        <div class="fg">
+          <label>Suit</label>
+          <select id="te-suit" onchange="tePreview()" style="font-size:1.1rem;padding:10px;">
+            <option value="C">♣ Clubs</option>
+            <option value="D">♦ Diamonds</option>
+            <option value="H">♥ Hearts</option>
+            <option value="S" selected>♠ Spades</option>
+            <option value="N">NT</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Declarer</label>
+          <select id="te-dir" onchange="tePreview()" style="font-size:1.1rem;padding:10px;">
+            <option value="N">North</option>
+            <option value="S" selected>South</option>
+            <option value="E">East</option>
+            <option value="W">West</option>
+          </select>
+        </div>
+      </div>
+      <!-- Doubled -->
+      <div class="fg">
+        <label>Doubled?</label>
+        <select id="te-dbl" onchange="tePreview()" style="font-size:1.1rem;padding:10px;">
+          <option value="0">Undoubled</option>
+          <option value="1">Doubled  X</option>
+          <option value="2">Redoubled  XX</option>
+        </select>
+      </div>
+      <!-- Tricks drag + score preview -->
+      <div class="row2" style="align-items:flex-end;">
+        <div class="fg">
+          <label>Tricks Made — slide ↕</label>
+          <div class="drag-num" id="dn-tricks">
+            <div class="drag-arr">▲</div>
+            <div class="drag-val" id="te-tricks-val">7</div>
+            <div class="drag-arr">▼</div>
+          </div>
+        </div>
+        <div class="fg" style="padding-bottom:1px"><div class="preview-score" id="te-preview">—</div></div>
+      </div>
+    </div>
+    <button class="big-btn" style="margin-top:14px" id="te-submit-btn" onclick="teSubmit()">Submit Result</button>
+    <div id="te-err" class="flash flash-err" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN: TABLE CONFIRM ══════════ -->
+<div id="s-table-confirm" class="screen">
+  <div class="confirm-wrap">
+    <div class="ci">✅</div>
+    <h2 id="tc-title">Board 5 Submitted</h2>
+    <p id="tc-sub">Result recorded</p>
+    <button class="big-btn" onclick="resetEntryForm();go('s-table-entry')">Enter Another Score</button>
+  </div>
+</div>
+
+<!-- ══════════ SCREEN: RESULTS (tables after session ends) ══════════ -->
+<div id="s-results" class="screen">
+  <div class="banner banner-ended" style="margin:-16px -16px 16px">✓ Session Ended — Final Results</div>
+
+  <div class="tabbar">
+    <button class="tbtn on" id="rt-stand" onclick="rtab('stand')">Standings</button>
+    <button class="tbtn"    id="rt-boards" onclick="rtab('boards')">By Board</button>
+  </div>
+  <div class="tabpanel">
+    <div id="rp-stand"><div id="rp-stand-inner"></div></div>
+    <div id="rp-boards" style="display:none"><div id="rp-boards-inner"></div></div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIG SETUP
+// ════════════════════════════════════════════════════════════
+let db;
+
+// Firebase config — embedded directly
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBXX-dt84uik1nAgP0EucyTpDFhjbdcQ9g",
+  authDomain: "duplicate-bridge.firebaseapp.com",
+  projectId: "duplicate-bridge",
+  storageBucket: "duplicate-bridge.firebasestorage.app",
+  messagingSenderId: "733174143141",
+  appId: "1:733174143141:web:22dc053afbd7cefeca154c"
+};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+db = firebase.firestore();
+document.getElementById('setup-overlay').style.display = 'none';
+
+// ════════════════════════════════════════════════════════════
+// SCORING ENGINE
+// ════════════════════════════════════════════════════════════
+const SYM  = {C:'♣',D:'♦',H:'♥',S:'♠',N:'NT'};
+const SCLS = {C:'blk',D:'red',H:'red',S:'blk',N:'blk'};
+const VUL16 = ['none','ns','ew','both','ns','ew','both','none','ew','both','none','ns','both','none','ns','ew'];
+
+function bVul(n)            { return VUL16[(n-1)%16]; }
+function dVul(vul,dir)      { const ns=dir==='N'||dir==='S'; return vul==='both'||(ns&&vul==='ns')||(!ns&&vul==='ew'); }
+
+function rawScore(level,suit,dbl,tricks,vul) {
+  const diff = tricks-(level+6);
+  if (diff<0) {
+    const u=-diff;
+    if (dbl===0) return vul?-100*u:-50*u;
+    if (dbl===1) return !vul
+      ? -(100+(u>=2?Math.min(u-1,2)*200:0)+(u>=4?(u-3)*300:0))
+      : -(200+(u>=2?(u-1)*300:0));
+    return !vul
+      ? -(200+(u>=2?Math.min(u-1,2)*400:0)+(u>=4?(u-3)*600:0))
+      : -(400+(u>=2?(u-1)*600:0));
+  }
+  let ts = suit==='N'?40+30*(level-1):(suit==='C'||suit==='D'?20:30)*level;
+  if (dbl===1)ts*=2; if(dbl===2)ts*=4;
+  let s = ts+(ts>=100?(vul?500:300):50);
+  if(level===6)s+=vul?750:500; if(level===7)s+=vul?1500:1000;
+  if(dbl===1)s+=50; if(dbl===2)s+=100;
+  if(diff>0)s+=dbl===0?diff*(suit==='C'||suit==='D'?20:30):diff*(dbl===1?(vul?200:100):(vul?400:200));
+  return s;
+}
+
+function calcMPs(results) {
+  const n=results.length, top=2*(n-1);
+  results.forEach(r => {
+    r.nsMp=0;
+    results.forEach(o=>{if(r!==o){if(r.nsScore>o.nsScore)r.nsMp+=2;else if(r.nsScore===o.nsScore)r.nsMp+=1;}});
+    r.ewMp=top-r.nsMp; r.top=top;
+  });
+}
+
+function groupByBoard(results,numBoards) {
+  const map={};
+  for(let i=1;i<=numBoards;i++)map[i]=[];
+  results.forEach(r=>{if(map[r.boardNumber])map[r.boardNumber].push({...r});});
+  Object.values(map).forEach(b=>{if(b.length)calcMPs(b);});
+  return map;
+}
+
+function getStandings(results,pairs,numBoards) {
+  const byBoard=groupByBoard(results,numBoards);
+  const map={};
+  pairs.forEach(p=>{map[p.id]={id:p.id,name:p.name,totalMp:0,maxMp:0,boards:0};});
+  Object.values(byBoard).forEach(bRes=>{
+    bRes.forEach(r=>{
+      if(map[r.nsPair]){map[r.nsPair].totalMp+=r.nsMp;map[r.nsPair].maxMp+=r.top;map[r.nsPair].boards++;}
+      if(map[r.ewPair]){map[r.ewPair].totalMp+=r.ewMp;map[r.ewPair].maxMp+=r.top;map[r.ewPair].boards++;}
+    });
+  });
+  return Object.values(map).sort((a,b)=>b.totalMp-a.totalMp||a.id-b.id);
+}
+
+// ════════════════════════════════════════════════════════════
+// DRAG-NUMBER + LEVEL CONTROLS
+// ════════════════════════════════════════════════════════════
+let stepNS=1, stepEW=2, stepTricks=7, stepLevel=1;
+
+function setLvl(n) {
+  stepLevel = n;
+  document.querySelectorAll('.lvl-btn').forEach((b,i)=>b.classList.toggle('on', i+1===n));
+  tePreview();
+}
+
+function initDragNums() {
+  const PX = 16; // pixels of drag per 1 step
+
+  function setupDrag(elId, getV, setV, getMin, getMax) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const valEl = el.querySelector('.drag-val');
+    let startY, startVal, mdDrag=false;
+
+    const clamp = v => Math.max(getMin(), Math.min(getMax(), v));
+    const update = v => { v=clamp(v); setV(v); valEl.textContent=v; tePreview(); };
+
+    el.addEventListener('touchstart', e=>{ startY=e.touches[0].clientY; startVal=getV(); e.preventDefault(); },{passive:false});
+    el.addEventListener('touchmove',  e=>{ update(startVal + Math.round((startY-e.touches[0].clientY)/PX)); e.preventDefault(); },{passive:false});
+
+    el.addEventListener('mousedown', e=>{ startY=e.clientY; startVal=getV(); mdDrag=true; e.preventDefault(); });
+    window.addEventListener('mousemove', e=>{ if(mdDrag) update(startVal+Math.round((startY-e.clientY)/PX)); });
+    window.addEventListener('mouseup', ()=>{ mdDrag=false; });
+  }
+
+  setupDrag('dn-ns',
+    ()=>stepNS, v=>stepNS=v,
+    ()=>1, ()=>tableSession?tableSession.numPairs:40);
+  setupDrag('dn-ew',
+    ()=>stepEW, v=>stepEW=v,
+    ()=>1, ()=>tableSession?tableSession.numPairs:40);
+  setupDrag('dn-tricks',
+    ()=>stepTricks, v=>stepTricks=v,
+    ()=>0, ()=>13);
+}
+
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+let dirCode=null, dirSession=null, dirUnsub=null;
+let tableCode=null, tableSession=null, tableUnsub=null;
+function tF() {
+  return {
+    suit:   document.getElementById('te-suit').value,
+    dir:    document.getElementById('te-dir').value,
+    dbl:    parseInt(document.getElementById('te-dbl').value),
+    tricks: stepTricks,
+    level:  stepLevel,
+  };
+}
+
+// ════════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════════
+function go(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('back-btn').style.display = id==='s-home'?'none':'';
+}
+
+function goBack() {
+  const a=document.querySelector('.screen.active');
+  if(!a)return;
+  const id=a.id;
+  const map={
+    's-dir-setup':'s-home','s-director':'s-home',
+    's-table-join':'s-home','s-table-entry':'s-table-join',
+    's-table-confirm':'s-table-entry','s-results':'s-table-join'
+  };
+  go(map[id]||'s-home');
+}
+
+function setHdr(title,sub) {
+  document.getElementById('hdr-title').textContent=title;
+  document.getElementById('hdr-sub').textContent=sub||'';
+}
+
+function showErr(id,msg){const e=document.getElementById(id);e.textContent=msg;e.style.display='';setTimeout(()=>e.style.display='none',5000);}
+function hideErr(id){document.getElementById(id).style.display='none';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmt(n){return(n>=0?'+':'')+n;}
+function vBadge(v){return`<span class="vb vb-${v}">${{none:'None Vul',ns:'NS Vul',ew:'EW Vul',both:'Both Vul'}[v]}</span>`;}
+function mpCls(f){return f>=.6?'mp-hi':f>=.4?'mp-mid':'mp-lo';}
+function cHtml(level,suit,dir,dbl){const d=dbl===1?'X':dbl===2?'XX':'';return`<strong>${level}<span class="${SCLS[suit]}">${SYM[suit]}</span>${d}</strong> by ${dir}`;}
+function rHtml(level,tricks){const d=tricks-(level+6);return d===0?`<span style="color:var(--blue)">Made</span>`:d>0?`<span class="pos">+${d}</span>`:`<span class="neg">${d}</span>`;}
+
+// ════════════════════════════════════════════════════════════
+// DIRECTOR SETUP TAB
+// ════════════════════════════════════════════════════════════
+function dsetTab(t) {
+  ['new','existing'].forEach(x=>{
+    document.getElementById(`dt-${x}`).classList.toggle('on',x===t);
+    document.getElementById(`dset-${x}`).style.display=x===t?'':'none';
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// CREATE SESSION
+// ════════════════════════════════════════════════════════════
+function genCode(){
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join('');
+}
+
+async function createSession() {
+  const name  = document.getElementById('cn-name').value.trim();
+  const nP    = parseInt(document.getElementById('cn-pairs').value)||8;
+  const nB    = parseInt(document.getElementById('cn-boards').value)||24;
+  const pin   = document.getElementById('cn-pin').value.trim();
+  if(!name)    return showErr('cn-err','Enter a tournament name.');
+  if(pin.length<3) return showErr('cn-err','PIN must be at least 3 digits.');
+
+  const code  = genCode();
+  const pairs = Array.from({length:nP},(_,i)=>({id:i+1,name:`Pair ${i+1}`}));
+
+  try {
+    await db.collection('sessions').doc(code).set({
+      name,numPairs:nP,numBoards:nB,directorPin:pin,sessionEnded:false,pairs,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    dirCode=code;
+    dirSession={name,numPairs:nP,numBoards:nB,directorPin:pin,sessionEnded:false,pairs,_results:[]};
+    openDirector();
+  } catch(e){showErr('cn-err','Firebase error: '+e.message);}
+}
+
+async function dirLogin() {
+  const code = document.getElementById('ex-code').value.trim().toUpperCase();
+  const pin  = document.getElementById('ex-pin').value.trim();
+  if(code.length!==6)return showErr('ex-err','Enter a 6-character session code.');
+  if(!pin)return showErr('ex-err','Enter the PIN.');
+  try {
+    const snap = await db.collection('sessions').doc(code).get();
+    if(!snap.exists)return showErr('ex-err','Session not found.');
+    const d=snap.data();
+    if(d.directorPin!==pin)return showErr('ex-err','Incorrect PIN.');
+    dirCode=code; dirSession={...d,_results:[]};
+    openDirector();
+  } catch(e){showErr('ex-err','Firebase error: '+e.message);}
+}
+
+// ════════════════════════════════════════════════════════════
+// DIRECTOR DASHBOARD
+// ════════════════════════════════════════════════════════════
+function openDirector() {
+  setHdr('Director — '+dirSession.name);
+  document.getElementById('dir-code').textContent=dirCode;
+  renderDirPairs();
+
+  if(dirSession.sessionEnded) {
+    const b=document.getElementById('end-btn');
+    b.textContent='✓ Session has ended'; b.disabled=true;
+  }
+
+  if(dirUnsub)dirUnsub();
+  dirUnsub=db.collection('sessions').doc(dirCode).collection('results')
+    .onSnapshot(snap=>{
+      dirSession._results=snap.docs.map(d=>({...d.data(),_id:d.id}));
+      const open=document.querySelector('#s-director.active');
+      if(open){
+        if(document.getElementById('dd-results').style.display!=='none')renderDirResults();
+        if(document.getElementById('dd-standings').style.display!=='none')renderDirStandings();
+      }
+    });
+
+  go('s-director');
+  ddt('setup');
+}
+
+function ddt(t) {
+  ['setup','results','standings'].forEach(x=>{
+    document.getElementById(`ddt-${x}`).classList.toggle('on',x===t);
+    document.getElementById(`dd-${x}`).style.display=x===t?'':'none';
+  });
+  if(t==='results')renderDirResults();
+  if(t==='standings')renderDirStandings();
+}
+
+function renderDirPairs() {
+  let h='<table><thead><tr><th style="width:40px">#</th><th>Name</th></tr></thead><tbody>';
+  dirSession.pairs.forEach(p=>{
+    h+=`<tr><td class="tc" style="color:var(--muted)">${p.id}</td>
+    <td><input type="text" value="${esc(p.name)}" onchange="dirSession.pairs[${p.id-1}].name=this.value"/></td></tr>`;
+  });
+  h+='</tbody></table>';
+  document.getElementById('dir-pairs-tbl').innerHTML=h;
+}
+
+async function savePairs() {
+  try{await db.collection('sessions').doc(dirCode).update({pairs:dirSession.pairs});alert('Pair names saved ✓');}
+  catch(e){alert('Error: '+e.message);}
+}
+
+async function endSession() {
+  if(!confirm('End the session? All results will become visible to players.'))return;
+  await db.collection('sessions').doc(dirCode).update({sessionEnded:true});
+  dirSession.sessionEnded=true;
+  const b=document.getElementById('end-btn');
+  b.textContent='✓ Session has ended'; b.disabled=true;
+}
+
+function renderDirResults() {
+  const el=document.getElementById('dir-results-inner');
+  const rs=dirSession._results||[];
+  if(!rs.length){el.innerHTML='<p class="empty">No results yet.</p>';return;}
+  const byBoard=groupByBoard(rs,dirSession.numBoards);
+  let h='';
+  Object.entries(byBoard).forEach(([bn,bRes])=>{
+    if(!bRes.length)return;
+    const vul=bVul(parseInt(bn)), top=2*(bRes.length-1);
+    h+=`<div class="card" style="padding:12px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <strong style="font-size:.9rem">Board ${bn}</strong>${vBadge(vul)}
+        <span style="margin-left:auto;font-size:.72rem;color:var(--muted)">${bRes.length} res · Top ${top}</span>
+      </div>
+      <table><thead><tr><th>NS</th><th>EW</th><th>Contract</th><th>Res</th><th>Score</th><th>NS</th><th>EW</th><th></th></tr></thead><tbody>`;
+    [...bRes].sort((a,b)=>b.nsScore-a.nsScore).forEach(r=>{
+      const ct=r.passout?'<em style="color:var(--muted)">Passed</em>':cHtml(r.level,r.suit,r.dir,r.dbl);
+      const rt=r.passout?'—':rHtml(r.level,r.tricks);
+      const nf=top>0?r.nsMp/top:.5,ef=top>0?r.ewMp/top:.5;
+      h+=`<tr>
+        <td>${r.nsPair}</td><td>${r.ewPair}</td><td>${ct}</td><td>${rt}</td>
+        <td class="${r.nsScore>=0?'pos':'neg'}">${fmt(r.nsScore)}</td>
+        <td><span class="${mpCls(nf)}">${r.nsMp}</span><span style="color:#ccc;font-size:.68rem">/${top}</span></td>
+        <td><span class="${mpCls(ef)}">${r.ewMp}</span><span style="color:#ccc;font-size:.68rem">/${top}</span></td>
+        <td><button class="sm-btn sm-red" onclick="dirDeleteResult('${r._id}')">✕</button></td>
+      </tr>`;
+    });
+    h+='</tbody></table></div>';
+  });
+  el.innerHTML=h||'<p class="empty">No results yet.</p>';
+}
+
+function renderDirStandings() {
+  const el=document.getElementById('dir-standings-inner');
+  const rs=dirSession._results||[];
+  if(!rs.length){el.innerHTML='<p class="empty">No results yet.</p>';return;}
+  const st=getStandings(rs,dirSession.pairs,dirSession.numBoards);
+  el.innerHTML=standingsHtml(st);
+}
+
+// ════════════════════════════════════════════════════════════
+// TABLE JOIN
+// ════════════════════════════════════════════════════════════
+async function tableJoin() {
+  const code=document.getElementById('tj-code').value.trim().toUpperCase();
+  if(code.length!==6)return showErr('tj-err','Enter a 6-character code.');
+  try {
+    const snap=await db.collection('sessions').doc(code).get();
+    if(!snap.exists)return showErr('tj-err','Session not found. Check with the Director.');
+    tableCode=code; tableSession=snap.data();
+    document.getElementById('te-board').max=tableSession.numBoards;
+    setHdr(tableSession.name,'Enter Score');
+
+    // Reset steppers for this session
+    stepNS=1; stepEW=tableSession.numPairs>=2?2:1;
+    document.getElementById('te-ns-val').textContent=stepNS;
+    document.getElementById('te-ew-val').textContent=stepEW;
+
+    // If session already ended, go straight to results
+    if(tableSession.sessionEnded){loadTableResults();return;}
+
+    // Listen for session end
+    if(tableUnsub)tableUnsub();
+    tableUnsub=db.collection('sessions').doc(code).onSnapshot(s=>{
+      if(s.exists&&s.data().sessionEnded&&tableSession&&!tableSession.sessionEnded){
+        tableSession.sessionEnded=true;
+        loadTableResults();
+      }
+    });
+
+    tePreview();
+    go('s-table-entry');
+  } catch(e){showErr('tj-err','Error: '+e.message);}
+}
+
+// ════════════════════════════════════════════════════════════
+// TABLE ENTRY FORM
+// ════════════════════════════════════════════════════════════
+function teTogglePO() {
+  const po=document.getElementById('te-po').checked;
+  document.getElementById('te-contract').style.display=po?'none':'';
+  const prev=document.getElementById('te-preview');
+  prev.textContent=po?'0':'—'; prev.style.color='';
+}
+
+function tePreview() {
+  const bn=parseInt(document.getElementById('te-board').value);
+  const prev=document.getElementById('te-preview');
+  if(bn>=1&&bn<=36)document.getElementById('te-vul').innerHTML=vBadge(bVul(bn));
+  if(document.getElementById('te-po').checked){prev.textContent='0';return;}
+  if(!bn||bn<1){prev.textContent='—';return;}
+  const f=tF();
+  const vul=bVul(bn),dvul=dVul(vul,f.dir);
+  const raw=rawScore(f.level,f.suit,f.dbl,f.tricks,dvul);
+  const ns=(f.dir==='N'||f.dir==='S')?raw:-raw;
+  prev.textContent=fmt(ns);
+  prev.style.color=ns>=0?'var(--dark)':'var(--red)';
+}
+
+async function teSubmit() {
+  const ns = stepNS;
+  const ew = stepEW;
+  const bn=parseInt(document.getElementById('te-board').value);
+  const po=document.getElementById('te-po').checked;
+  const f=tF();
+
+  if(isNaN(ns)||ns<1)return showErr('te-err','Enter a valid NS pair number.');
+  if(isNaN(ew)||ew<1)return showErr('te-err','Enter a valid EW pair number.');
+  if(ns===ew)        return showErr('te-err','NS and EW pairs must be different.');
+  if(isNaN(bn)||bn<1||bn>tableSession.numBoards) return showErr('te-err',`Board must be 1–${tableSession.numBoards}.`);
+
+  // Prevent duplicate
+  const dup=await db.collection('sessions').doc(tableCode).collection('results')
+    .where('boardNumber','==',bn).where('nsPair','==',ns).where('ewPair','==',ew).get();
+  if(!dup.empty)return showErr('te-err','This matchup on this board has already been submitted.');
+
+  let nsScore=0;
+  if(!po){
+    const vul=bVul(bn),dvul=dVul(vul,f.dir);
+    const raw=rawScore(f.level,f.suit,f.dbl,f.tricks,dvul);
+    nsScore=(f.dir==='N'||f.dir==='S')?raw:-raw;
+  }
+
+  const btn=document.getElementById('te-submit-btn');
+  btn.disabled=true; btn.textContent='Submitting…';
+
+  try {
+    await db.collection('sessions').doc(tableCode).collection('results').add({
+      boardNumber:bn, nsPair:ns, ewPair:ew, level:f.level, suit:f.suit, dir:f.dir,
+      dbl:f.dbl, tricks:f.tricks, nsScore, passout:po,
+      submittedAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    document.getElementById('tc-title').textContent=`Board ${bn} Submitted ✓`;
+    document.getElementById('tc-sub').textContent=
+      `Pairs ${ns} (NS) vs ${ew} (EW) · ${po?'Passed Out':fmt(nsScore)+' pts'}`;
+    go('s-table-confirm');
+  } catch(e){showErr('te-err','Error submitting: '+e.message);}
+  finally{btn.disabled=false;btn.textContent='Submit Result';}
+}
+
+// ════════════════════════════════════════════════════════════
+// TABLE RESULTS (after session ends)
+// ════════════════════════════════════════════════════════════
+async function loadTableResults() {
+  setHdr(tableSession.name,'Final Results');
+  go('s-results');
+  const snap=await db.collection('sessions').doc(tableCode).collection('results').get();
+  const rs=snap.docs.map(d=>d.data());
+
+  // Reload pairs (in case director updated names)
+  const sesSnap=await db.collection('sessions').doc(tableCode).get();
+  const pairs=sesSnap.data().pairs;
+  const numBoards=sesSnap.data().numBoards;
+
+  const st=getStandings(rs,pairs,numBoards);
+  document.getElementById('rp-stand-inner').innerHTML=standingsHtml(st);
+
+  // Board detail
+  const byBoard=groupByBoard(rs,numBoards);
+  let h='';
+  Object.entries(byBoard).forEach(([bn,bRes])=>{
+    if(!bRes.length)return;
+    const vul=bVul(parseInt(bn)),top=2*(bRes.length-1);
+    h+=`<div class="card" style="padding:12px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <strong style="font-size:.9rem">Board ${bn}</strong>${vBadge(vul)}
+        <span style="margin-left:auto;font-size:.72rem;color:var(--muted)">${bRes.length} results · Top ${top}</span>
+      </div>
+      <table><thead><tr><th>NS</th><th>EW</th><th>Contract</th><th>Res</th><th>Score</th><th>NS MP</th><th>EW MP</th></tr></thead><tbody>`;
+    [...bRes].sort((a,b)=>b.nsScore-a.nsScore).forEach(r=>{
+      const ct=r.passout?'<em style="color:var(--muted)">Passed</em>':cHtml(r.level,r.suit,r.dir,r.dbl);
+      const rt=r.passout?'—':rHtml(r.level,r.tricks);
+      const nf=top>0?r.nsMp/top:.5,ef=top>0?r.ewMp/top:.5;
+      h+=`<tr>
+        <td>${r.nsPair}</td><td>${r.ewPair}</td><td>${ct}</td><td>${rt}</td>
+        <td class="${r.nsScore>=0?'pos':'neg'}">${fmt(r.nsScore)}</td>
+        <td><span class="${mpCls(nf)}">${r.nsMp}</span><span style="color:#ccc;font-size:.68rem">/${top}</span></td>
+        <td><span class="${mpCls(ef)}">${r.ewMp}</span><span style="color:#ccc;font-size:.68rem">/${top}</span></td>
+      </tr>`;
+    });
+    h+='</tbody></table></div>';
+  });
+  document.getElementById('rp-boards-inner').innerHTML=h||'<p class="empty">No results.</p>';
+}
+
+function rtab(t) {
+  ['stand','boards'].forEach(x=>{
+    document.getElementById(`rt-${x}`).classList.toggle('on',x===t);
+    document.getElementById(`rp-${x}`).style.display=x===t?'':'none';
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// DIRECTOR: DELETE RESULT
+// ════════════════════════════════════════════════════════════
+async function dirDeleteResult(id) {
+  if (!confirm('Delete this result? The table can then re-enter it correctly.')) return;
+  try {
+    await db.collection('sessions').doc(dirCode).collection('results').doc(id).delete();
+    // UI updates automatically via the onSnapshot listener
+  } catch(e) { alert('Error deleting: ' + e.message); }
+}
+
+// ════════════════════════════════════════════════════════════
+// CSV EXPORT
+// ════════════════════════════════════════════════════════════
+function exportCSV() {
+  const rs = dirSession._results || [];
+  if (!rs.length) { alert('No results to export yet.'); return; }
+
+  const byBoard = groupByBoard(rs, dirSession.numBoards);
+  const st = getStandings(rs, dirSession.pairs, dirSession.numBoards);
+
+  let csv = `${dirSession.name} — Results\n\n`;
+
+  // Standings
+  csv += 'STANDINGS\n';
+  csv += 'Rank,Pair #,Name,Boards,Total MPs,Percentage\n';
+  let rank = 1;
+  st.forEach((s, i) => {
+    if (i > 0 && s.totalMp < st[i-1].totalMp) rank = i + 1;
+    const pct = s.maxMp > 0 ? (s.totalMp / s.maxMp * 100).toFixed(1) : '0.0';
+    csv += `${rank},${s.id},"${s.name}",${s.boards},${s.totalMp},${pct}%\n`;
+  });
+
+  // Board-by-board results
+  csv += '\nRESULTS BY BOARD\n';
+  csv += 'Board,Vulnerability,NS Pair,EW Pair,Contract,Declarer,Doubled,Tricks,NS Score,NS MPs,EW MPs\n';
+  Object.entries(byBoard).forEach(([bn, bRes]) => {
+    if (!bRes.length) return;
+    const vul = {none:'None',ns:'NS',ew:'EW',both:'Both'}[bVul(parseInt(bn))];
+    [...bRes].sort((a,b) => b.nsScore - a.nsScore).forEach(r => {
+      const contract = r.passout ? 'Passed Out' : `${r.level}${SYM[r.suit]}`;
+      const dbl = r.dbl===1?'X':r.dbl===2?'XX':'';
+      csv += `${bn},${vul},${r.nsPair},${r.ewPair},"${contract}",${r.passout?'':r.dir},${dbl},${r.passout?'':r.tricks},${r.nsScore},${r.nsMp??''},${r.ewMp??''}\n`;
+    });
+  });
+
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `${(dirSession.name||'bridge').replace(/\s+/g,'-')}-results.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ════════════════════════════════════════════════════════════
+// SHARED STANDINGS HTML
+// ════════════════════════════════════════════════════════════
+function standingsHtml(st) {
+  if(!st.some(s=>s.boards>0))return'<p class="empty">No results yet.</p>';
+  let h=`<table><thead><tr>
+    <th class="tc">Rank</th><th class="tc">#</th><th>Name</th>
+    <th class="tc">Bds</th><th class="tc">MPs</th><th class="tc">%</th><th>Bar</th>
+  </tr></thead><tbody>`;
+  const medals=['','#c8a000','#9e9e9e','#8b5a2b'];
+  let rank=1;
+  st.forEach((s,i)=>{
+    if(i>0&&s.totalMp<st[i-1].totalMp)rank=i+1;
+    const pN=s.maxMp>0?s.totalMp/s.maxMp*100:0;
+    const pS=s.maxMp>0?pN.toFixed(1):'—';
+    const clr=pN>=60?'var(--green)':pN>=50?'var(--blue)':'var(--red)';
+    h+=`<tr>
+      <td class="tc" style="font-weight:700;${rank<=3?`color:${medals[rank]}`:''};">${rank}</td>
+      <td class="tc" style="color:var(--muted)">${s.id}</td>
+      <td style="font-weight:500">${esc(s.name)}</td>
+      <td class="tc">${s.boards}</td>
+      <td class="tc" style="font-weight:700">${s.totalMp}</td>
+      <td class="tc" style="font-weight:700;color:${clr}">${pS}%</td>
+      <td><div class="pbar"><div class="pfill" style="width:${Math.min(pN,100)}%;background:${clr}"></div></div></td>
+    </tr>`;
+  });
+  return h+'</tbody></table>';
+}
+
+// ════════════════════════════════════════════════════════════
+// ENTRY FORM RESET
+// ════════════════════════════════════════════════════════════
+function resetEntryForm() {
+  document.getElementById('te-board').value = '';
+  document.getElementById('te-vul').innerHTML = '';
+  const prev = document.getElementById('te-preview');
+  prev.textContent = '—'; prev.style.color = '';
+  document.getElementById('te-po').checked = false;
+  document.getElementById('te-contract').style.display = '';
+  document.getElementById('te-suit').value = 'S';
+  document.getElementById('te-dir').value = 'S';
+  document.getElementById('te-dbl').value = '0';
+  stepNS=1; stepEW=tableSession&&tableSession.numPairs>=2?2:1; stepTricks=7;
+  document.getElementById('te-ns-val').textContent=stepNS;
+  document.getElementById('te-ew-val').textContent=stepEW;
+  document.getElementById('te-tricks-val').textContent=7;
+  setLvl(1);
+  hideErr('te-err');
+}
+
+// ════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════
+document.getElementById('back-btn').style.display='none';
+
+// Hide Director button unless URL contains ?d=1
+if(!new URLSearchParams(window.location.search).get('d')) {
+  document.querySelector('.rb-director').style.display='none';
+}
+
+initDragNums();
+</script>
+</body>
+</html>
